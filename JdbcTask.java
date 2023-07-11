@@ -26,8 +26,7 @@ public class JdbcTask {
 		String filePath = "/home/hari/Downloads/Districts.xlsx";
 		Connection connection = JdbcOperations
 				.getConnection("jdbc:mysql://localhost:3306/zerocode?characterEncoding=utf8", "admin", "@Chakri007");
-		connection.close();
-		System.out.println(migrateExcelDataToDatabase(filePath, 1, 0, connection));
+		migrateExcelDataToDatabases(filePath, 0, 1, connection);
 	}
 
 	public static Object migrateExcelDataToDatabase(String filePath, int stateColumnIndex, int districtColumnIndex,
@@ -81,9 +80,80 @@ public class JdbcTask {
 					districtStatement.executeUpdate();
 				}
 			}
+			connection.close();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		return "Data Migreted Sucessfully";
 	}
+	
+	public static Object migrateExcelDataToDatabases(String filePath, int stateColumnIndex, int districtColumnIndex,
+	        Connection connection) {
+	    String state = "";
+	    String district = "";
+	    Cell stateCell, districtCell;
+	    try {
+	        XSSFWorkbook workbook = new XSSFWorkbook(new FileInputStream(new File(filePath)));
+	        XSSFSheet sheet = workbook.getSheetAt(0);
+	        Iterator<Row> rowIterator = sheet.iterator();
+	        if (rowIterator.hasNext()) {
+	            rowIterator.next();
+	        }
+	        while (rowIterator.hasNext()) {
+	            Row row = rowIterator.next();
+	            stateCell = row.getCell(stateColumnIndex);
+	            districtCell = row.getCell(districtColumnIndex);
+	            if (stateCell != null && districtCell != null) {
+	                state = stateCell.getStringCellValue();
+	                district = districtCell.getStringCellValue();
+	                if (!stateExists(connection, state)) {
+	                    PreparedStatement stateStatement = insertDataToTable(connection, "state_table", "state_name", "state_code");
+	                    stateStatement.setString(1, state);
+	                    stateStatement.setString(2, StringTasks.getFormattedValue(state));
+	                    stateStatement.executeUpdate();
+	                }
+	                int stateId = getStateId(connection, state);
+	                PreparedStatement districtStatement = insertDataToTable(connection, "district_table", "district_name", "state_id");
+	                districtStatement.setString(1, district);
+	                districtStatement.setInt(2, stateId);
+	                districtStatement.executeUpdate();
+	            }
+	        }
+	        connection.close();
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	    }
+	    return "Data Migrated Successfully";
+	}
+	public static PreparedStatement insertDataToTable(Connection connection, String tableName, String firstField, String secondField)
+	        throws SQLException {
+	    String sql = "INSERT INTO " + tableName + " (" + firstField + ", " + secondField + ") VALUES (?, ?)";
+	    PreparedStatement preparedStatement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+	    return preparedStatement;
+	}
+
+	public static PreparedStatement getValuesFromTable(Connection connection, String tableName, String conditionField, String value)
+	        throws SQLException {
+	    String sql = "SELECT * FROM " + tableName + " WHERE " + conditionField + " = ?";
+	    PreparedStatement preparedStatement = connection.prepareStatement(sql);
+	    preparedStatement.setString(1, value);
+	    return preparedStatement;
+	}
+
+	public static boolean stateExists(Connection connection, String state) throws SQLException {
+	    PreparedStatement statement = getValuesFromTable(connection, "state_table", "state_name", state);
+	    ResultSet resultSet = statement.executeQuery();
+	    return resultSet.next();
+	}
+
+	public static int getStateId(Connection connection, String state) throws SQLException {
+	    PreparedStatement statement = getValuesFromTable(connection, "state_table", "state_name", state);
+	    ResultSet resultSet = statement.executeQuery();
+	    if (resultSet.next()) {
+	        return resultSet.getInt(1);
+	    }
+	    return -1;
+	}
+
+
 }
