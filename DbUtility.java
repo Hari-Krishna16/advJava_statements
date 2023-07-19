@@ -4,11 +4,14 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import de.zeroco.utility.Utility;
 
@@ -16,7 +19,7 @@ public class DbUtility {
 
 	public static final String DATABASE_URL = "jdbc:mysql://localhost:3306/zerocode?characterEncoding=utf8";
 	public static final String USER = "admin";
-	public static final String USER_PSSWORD = "@Chakri007";
+	public static final String USER_PASSWORD = "@Chakri007";
 	public static final String REGISTER_DRIVER = "com.mysql.jdbc.Driver";
 
 	public static void main(String[] args) throws SQLException {
@@ -26,17 +29,21 @@ public class DbUtility {
 //		values.add("Gopi");
 //		Connection connection = JdbcOperations
 //				.getConnection("jdbc:mysql://localhost:3306/zerocode?characterEncoding=utf8", "admin", "@Chakri007");
-		System.out.println(getGeneratedKey( "zerocode", "students_table",
-				Arrays.asList("student_name", "student_city"), Arrays.asList("Ranga", "America")));
+//		System.out.println(getGeneratedKey( "zerocode", "students_table",
+//				Arrays.asList("student_name", "student_city"), Arrays.asList("Ranga", "America")));
 
-//		System.out.println(getListDataFromTable("zerocode", "employee_table", Arrays.asList("employee_name", "pk_id")));
+//		System.out.println(list("zerocode", "employee_table", Arrays.asList()));
+//		System.out.println(get("zerocode", "employee_table", Arrays.asList("employee_name"),"pk_id", Arrays.asList(1)));
+		System.out.println(update("zerocode", "employee_table", Arrays.asList("employee_name"),
+				Arrays.asList("Bahubali"), "pk_id", 6));
+
 	}
 
 	/**
 	 * this method is used to establish the connection between application and
 	 * database
 	 * 
-	 * @author hari
+	 * @author Hari Krishna
 	 * @param url
 	 * @param user
 	 * @param password
@@ -58,7 +65,7 @@ public class DbUtility {
 	/**
 	 * this method are used to close the connection between application and database
 	 * 
-	 * @author hari
+	 * @author Hari Krishna
 	 * @param connection
 	 * @return boolean
 	 */
@@ -72,64 +79,166 @@ public class DbUtility {
 		}
 		return true;
 	}
-    
+
 	/**
 	 * this method is used to insert the data into table and get the pk_id of values
 	 * 
-	 * @author hari
+	 * @author Hari Krishna
 	 * @param connection
 	 * @param schema
 	 * @param tableName
 	 * @param columns
 	 * @param value
-	 * @return 
+	 * @return
 	 * @throws SQLException
 	 */
-	public static int getGeneratedKey( String schema, String tableName, List<String> columns,
-			List<Object> value) throws SQLException {
+	public static int getGeneratedKey(String schema, String tableName, List<String> columns, List<Object> value) {
 		if ((Utility.isBlank(schema) && Utility.isBlank(tableName)) && Utility.isBlank(columns)
 				&& Utility.isBlank(value))
 			return 0;
-		PreparedStatement statement = getConnection(DATABASE_URL, USER, USER_PSSWORD).prepareStatement(
-				QueryBuilder.getInsertQuery(schema, tableName, columns), Statement.RETURN_GENERATED_KEYS);
-		for (int i = 1; i <= columns.size(); i++) {
-			statement.setObject(i, value.get(i - 1));
+		PreparedStatement statement;
+		int rowId = 0;
+		try {
+			statement = getConnection(DATABASE_URL, USER, USER_PASSWORD).prepareStatement(
+					QueryBuilder.getInsertQuery(schema, tableName, columns), Statement.RETURN_GENERATED_KEYS);
+			for (int i = 1; i <= columns.size(); i++) {
+				statement.setObject(i, value.get(i - 1));
+			}
+			statement.executeUpdate();
+			ResultSet set = statement.getGeneratedKeys();
+			if (set.next()) {
+				rowId = set.getInt(1);
+			}
+			statement.close();
+			set.close();
+			closeConnection(getConnection(DATABASE_URL, USER, USER_PASSWORD));
+		} catch (SQLException e) {
+			e.printStackTrace();
 		}
-		statement.executeUpdate();
-		ResultSet set = statement.getGeneratedKeys();
-		int rowId = -1;
-		if (set.next()) {
-			rowId = set.getInt(1);
-		}
-		statement.close();
-		set.close();
-		closeConnection(getConnection(DATABASE_URL, USER, USER_PSSWORD));
 		return rowId;
 	}
 
-	public static Statement getListDataFromTable(String schemaName, String tableName, List<String> columns) {
-		String query = QueryBuilder.getListQuery(schemaName, tableName, columns);
-		System.out.println(query);
-		ResultSet set = null;
+	/**
+	 * this method is used to get the Table in listOf maps
+	 * 
+	 * @author Hari Krishna
+	 * @param schema
+	 * @param tableName
+	 * @param columns
+	 * @return list of maps
+	 */
+	public static List<Map<String, Object>> list(String schema, String tableName, List<String> columns) {
+		if ((Utility.isBlank(schema) && Utility.isBlank(tableName)) && Utility.isBlank(columns))
+			return null;
+		List<Map<String, Object>> listOfMaps = new ArrayList<>();
+		String columnName = "";
+		Object columnValue = "";
+		int countColumns = 0;
+		Connection connection = null;
 		try {
-			PreparedStatement statement = getConnection(DATABASE_URL, USER, USER_PSSWORD).prepareStatement(query);
-			set = statement.executeQuery();
-			set.next();
-			System.out.println(set.getObject(1) + " " + set.getObject(2));
-			set.close();
+			connection = DbUtility.getConnection(DATABASE_URL, USER, USER_PASSWORD);
+			PreparedStatement statement = connection
+					.prepareStatement(QueryBuilder.getListQuery(schema, tableName, columns));
+			ResultSet set = statement.executeQuery();
+			ResultSetMetaData metaData = set.getMetaData();
+			countColumns = metaData.getColumnCount();
+			while (set.next()) {
+				Map<String, Object> map = new HashMap<>();
+				for (int i = 1; i <= countColumns; i++) {
+					columnName = metaData.getColumnName(i);
+					columnValue = set.getObject(i);
+					map.put(columnName, columnValue);
+				}
+				listOfMaps.add(map);
+			}
 			statement.close();
+			set.close();
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
-			if (set != null) {
-				try {
-					set.close();
-				} catch (SQLException e) {
-					e.printStackTrace();
+			DbUtility.closeConnection(connection);
+		}
+
+		return listOfMaps;
+	}
+
+	/**
+	 * this method is used to get the data from the table in database
+	 * 
+	 * @author Hari Krishna
+	 * @param schema
+	 * @param tableName
+	 * @param columns
+	 * @param conditionColumn
+	 * @param values
+	 * @return map
+	 */
+	public static Map<String, Object> get(String schema, String tableName, List<String> columns, String conditionColumn,
+			List<Object> values) {
+		String columnName = "";
+		Object columnValue = "";
+		int countColumns = 0;
+		Connection connection = null;
+		Map<String, Object> map = new HashMap<>();
+		System.out.println(QueryBuilder.getQuerys(schema, tableName, columns, conditionColumn, values));
+		try {
+			connection = DbUtility.getConnection(DATABASE_URL, USER, USER_PASSWORD);
+			PreparedStatement statement = connection
+					.prepareStatement(QueryBuilder.getQuerys(schema, tableName, columns, conditionColumn, values));
+			ResultSet set = statement.executeQuery();
+			ResultSetMetaData metaData = set.getMetaData();
+			countColumns = metaData.getColumnCount();
+			while (set.next()) {
+				for (int i = 1; i <= countColumns; i++) {
+					columnName = metaData.getColumnName(i);
+					columnValue = set.getObject(i);
+					if (!map.containsKey(columnName)) {
+						map.put(columnName, columnValue);
+					}
 				}
 			}
+			statement.close();
+			set.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			DbUtility.closeConnection(connection);
 		}
-		return null;
+		return map;
+	}
+
+	/**
+	 * this method is used to update values of a table in database
+	 * 
+	 * @author Hari Krishna
+	 * @param schema
+	 * @param tableName
+	 * @param columns
+	 * @param values
+	 * @param conditionColumn
+	 * @param value
+	 * @return number of rows updated
+	 */
+	public static int update(String schema, String tableName, List<String> columns, List<String> values,
+			String conditionColumn, Object value) {
+		Connection connection = getConnection(DATABASE_URL, USER, USER_PASSWORD);
+		int effectedRows = 0;
+		try {
+			String query = QueryBuilder.getUpdateQuery(schema, tableName, columns, conditionColumn, value);
+			PreparedStatement statement = connection.prepareStatement(query);
+			for (int i = 0; i < values.size(); i++) {
+				for (String key : values) {
+					statement.setObject(i + 1, key);
+				}
+			}
+			effectedRows = statement.executeUpdate();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		} finally {
+			closeConnection(connection);
+		}
+
+		return effectedRows;
 	}
 
 	public static PreparedStatement insertDataToTable(Connection connection, String schemaName, String tableName,
