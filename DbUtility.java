@@ -36,14 +36,14 @@ public class DbUtility {
 //		System.out.println(get("zerocode", "employee_table", Arrays.asList("employee_name"),"pk_id", Arrays.asList(1)));
 		System.out.println(update("zerocode", "employee_table", Arrays.asList("employee_name"),
 				Arrays.asList("Bahubali"), "pk_id", 6));
-
+		System.out.println(delete("zerocode", "employee_table", "pk_id", 13));
 	}
 
 	/**
 	 * this method is used to establish the connection between application and
 	 * database
 	 * 
-	 * @author Hari Krishna
+	 * @author HariKrishna kaki
 	 * @param url
 	 * @param user
 	 * @param password
@@ -65,7 +65,7 @@ public class DbUtility {
 	/**
 	 * this method are used to close the connection between application and database
 	 * 
-	 * @author Hari Krishna
+	 * @author HariKrishna kaki
 	 * @param connection
 	 * @return boolean
 	 */
@@ -83,7 +83,7 @@ public class DbUtility {
 	/**
 	 * this method is used to insert the data into table and get the pk_id of values
 	 * 
-	 * @author Hari Krishna
+	 * @author HariKrishna kaki
 	 * @param connection
 	 * @param schema
 	 * @param tableName
@@ -121,7 +121,7 @@ public class DbUtility {
 	/**
 	 * this method is used to get the Table in listOf maps
 	 * 
-	 * @author Hari Krishna
+	 * @author HariKrishna kaki
 	 * @param schema
 	 * @param tableName
 	 * @param columns
@@ -165,7 +165,7 @@ public class DbUtility {
 	/**
 	 * this method is used to get the data from the table in database
 	 * 
-	 * @author Hari Krishna
+	 * @author HariKrishna kaki
 	 * @param schema
 	 * @param tableName
 	 * @param columns
@@ -175,6 +175,9 @@ public class DbUtility {
 	 */
 	public static Map<String, Object> get(String schema, String tableName, List<String> columns, String conditionColumn,
 			List<Object> values) {
+		if ((Utility.isBlank(schema) && Utility.isBlank(tableName)) && (Utility.isBlank(columns))
+				&& (Utility.isBlank(conditionColumn)) && (Utility.isBlank(values)))
+			return null;
 		String columnName = "";
 		Object columnValue = "";
 		int countColumns = 0;
@@ -210,7 +213,7 @@ public class DbUtility {
 	/**
 	 * this method is used to update values of a table in database
 	 * 
-	 * @author Hari Krishna
+	 * @author HariKrishna kaki
 	 * @param schema
 	 * @param tableName
 	 * @param columns
@@ -221,6 +224,9 @@ public class DbUtility {
 	 */
 	public static int update(String schema, String tableName, List<String> columns, List<String> values,
 			String conditionColumn, Object value) {
+		if ((Utility.isBlank(schema) && Utility.isBlank(tableName)) && (Utility.isBlank(columns))
+				&& (Utility.isBlank(conditionColumn)) && (Utility.isBlank(values)) && (Utility.isBlank(value)))
+			return 0;
 		Connection connection = getConnection(DATABASE_URL, USER, USER_PASSWORD);
 		int effectedRows = 0;
 		try {
@@ -237,8 +243,34 @@ public class DbUtility {
 		} finally {
 			closeConnection(connection);
 		}
-
 		return effectedRows;
+	}
+
+	/**
+	 * this method is used to delete row data from a table in database
+	 * 
+	 * @author HariKrishna kaki
+	 * @param schema
+	 * @param tableName
+	 * @param conditionColumn
+	 * @param value
+	 * @return
+	 */
+	public static int delete(String schema, String tableName, String conditionColumn, Object value) {
+		if ((Utility.isBlank(schema) && Utility.isBlank(tableName))
+				&& (Utility.isBlank(conditionColumn) && (Utility.isBlank(value))))
+			return 0;
+		Connection conection = getConnection(DATABASE_URL, USER, USER_PASSWORD);
+		int rowsDeleted = 0;
+		try {
+			PreparedStatement statement = conection
+					.prepareStatement(QueryBuilder.getDeleteQuery(schema, tableName, conditionColumn));
+			statement.setObject(1, value);
+			rowsDeleted = statement.executeUpdate();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return rowsDeleted;
 	}
 
 	public static PreparedStatement insertDataToTable(Connection connection, String schemaName, String tableName,
