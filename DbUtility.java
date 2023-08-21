@@ -222,21 +222,21 @@ public class DbUtility {
 	 * @param value
 	 * @return number of rows updated
 	 */
-	public static int update(String schema, String tableName, List<String> columns, List<String> values,
+	public static int update(Connection connection, String schema, String tableName, List<String> columns, List<Object> values,
 			String conditionColumn, Object value) {
 		if ((Utility.isBlank(schema) && Utility.isBlank(tableName)) && (Utility.isBlank(columns))
 				&& (Utility.isBlank(conditionColumn)) && (Utility.isBlank(values)) && (Utility.isBlank(value)))
 			return 0;
-		Connection connection = getConnection(DATABASE_URL, USER, USER_PASSWORD);
+		connection = getConnection(DATABASE_URL, USER, USER_PASSWORD);
 		int effectedRows = 0;
 		try {
 			String query = QueryBuilder.getUpdateQuery(schema, tableName, columns, conditionColumn, value);
 			PreparedStatement statement = connection.prepareStatement(query);
-			for (int i = 0; i < values.size(); i++) {
-				for (String key : values) {
-					statement.setObject(i + 1, key);
+			int i = 1;
+				for (Object key : values) {
+					statement.setObject(i , key);
+					i++;
 				}
-			}
 			effectedRows = statement.executeUpdate();
 		} catch (SQLException e) {
 			e.printStackTrace();
